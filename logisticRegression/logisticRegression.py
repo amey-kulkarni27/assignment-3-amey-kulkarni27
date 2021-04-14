@@ -37,15 +37,29 @@ def sigmoid(x):
     return 0.5 * (anp.tanh(x / 2.) + 1)
 
 def logistic_preds(X, thetas):
+    '''
+    X: Input DataFrame 
+    thetas: Coefficients for a certain class
+
+    Return: Probability that the given input sample belongs to the mentioned class
+    '''
     return sigmoid(anp.dot(X, thetas))
 
-def J(theta, inp, targets):
+def softmax(X, thetas, k):
+        num = anp.exp(anp.dot(X, thetas[k]))
+        den = 0.0
+        for i in range(n_classes):
+            den += anp.exp(anp.dot(X, thetas[k]))
+        return anp.sum(num / den)
+
+
+def J(theta, inp, targets, regularisation = None):
     '''
     This is the cost function we will be minimising
 
-    param X: Contains the X values, N x k values
+    param inp: Contains the X values, N x k values
     param theta: Learned coefficients, k coefficients, k x 1
-    param y: Actual labels, N x 1
+    param targets: Actual labels, N x 1
 
     Return: Cost function
     '''
@@ -53,7 +67,35 @@ def J(theta, inp, targets):
     preds = logistic_preds(inp, theta)
     label_probs = preds * targets + (1 - preds) * (1 - targets)
     cost = -anp.sum(anp.log(label_probs))
+
+    if(regularisation == "l1"):
+        cost += lamda * anp.linalg.norm(theta)
+    
+    if(regularisation == "l2"):
+        cost += lamda * anp.dot(theta, theta)
+
     return cost
+
+def J_multiclass(theta, inp, targets, n_classes):
+    '''
+    This is the cost function for k classes
+
+    param inp: Contains the X values, N x m values
+    param theta: Learned coefficients for k classes and m coefficients, k x m
+    param targets: Actual labels, N x 1, any of the k classes
+
+    Return: Cost function
+    '''
+    
+    cost = 0.0
+
+    for k in range(n_classes):
+        sel_vec = (targets == cls)
+        X = inp[sel_vec]
+        cost -= softmax(X, theta, k)
+
+    return cost
+
 
 class LogisticRegression():
     def __init__(self, fit_intercept = True):
@@ -78,7 +120,6 @@ class LogisticRegression():
             selection_vector, prev_used = select_batch(X_copy, (prev_used + 1) % n_samples, batch_size)
             X_train = X_copy[selection_vector] # Select only the batch
             y_train = y[selection_vector]
-            prev_thetas = thetas
             if(self.fit_intercept):
                 params = n_features + 1
             else:
@@ -89,7 +130,7 @@ class LogisticRegression():
 
         self.coef_ = thetas
 
-    def fit_unregularised_lr(self, X, y, batch_size = 1, num_iter = 100, lr = 0.01):
+    def fit_unregularised_lr(self, X, y, batch_size = 1, num_iter = 100, lr = 0.1):
         X_copy = X.copy(deep = True)
         n_samples = len(X_copy.index)
         n_features = len(X_copy.columns)
@@ -159,4 +200,91 @@ class LogisticRegression():
 
         return np.rint(y)
 
-    # def plot_decision_boundary()
+     def plot_decision_boundary(self):
+        '''
+        I will use the coefficients obtained by training on the first two-thirds of data
+        I will plot the points of the second one-third
+        '''
+
+        xx, yy = np.mgrid[-5:5:.01, -5:5:.01]
+        grid = np.c_[xx.ravel(), yy.ravel()]
+        probs = self.predict(grid)[:, 1].reshape(xx.shape)
+
+        f, ax = plt.subplots(figsize=(8, 6))
+        contour = ax.contourf(xx, yy, probs, 25, cmap="RdBu",
+                            vmin=0, vmax=1)
+        ax_c = f.colorbar(contour)
+        ax_c.set_label("$P(y = 1)$")
+        ax_c.set_ticks([0, .25, .5, .75, 1])
+
+        ax.scatter(self.f1, self.f2, c=self.y, s=50,
+                cmap="RdBu", vmin=-.2, vmax=1.2,
+                edgecolor="white", linewidth=1)
+
+        ax.set(aspect="equal",
+            xlim=(-5, 5), ylim=(-5, 5),
+            xlabel="$X_1$", ylabel="$X_2$")
+
+
+
+
+
+class Multi_Class_LR()
+    def __init__(self, fit_intercept = True):
+        self.fit_intercept = fit_intercept
+        self.coef_ = None # Will be replaced by the learned coefficients, thetas
+        self.n_classes = 0
+        pass
+    
+    def fit_unregularised_lr_vec(self, X, y, batch_size = 20, num_iter = 1000, lr = 0.02, n_classes):
+        X_copy = X.copy(deep = True)
+        n_samples = len(X_copy.index)
+        n_features = len(X_copy.columns)
+
+        self.n_classes = n_classes
+
+        if(self.fit_intercept):
+            X_copy.insert(0, column = "ones", value = [1 for i in range(len(X_copy.index))])
+            thetas = np.zeros((n_classes, n_features + 1))
+        else:
+            thetas = np.zeros((n_classes, n_features))
+
+        prev_used = -1 # Previously used sample, this indicates where to start the next batch from
+
+        for i in range(num_iter):
+            selection_vector, prev_used = select_batch(X_copy, (prev_used + 1) % n_samples, batch_size)
+            X_train = X_copy[selection_vector] # Select only the batch
+            y_train = y[selection_vector]
+            if(self.fit_intercept):
+                params = n_features + 1
+            else:
+                params = n_features
+            Xt = X_train.transpose()
+            update_vec = Xt.values.dot(expit(X_train.values.dot(thetas)) - y_train.values)
+            thetas = thetas - lr * update_vec
+            for k in range(n_classes):
+                thetas[k] -= np.sum(X_train * ((y_train == cls).astype(float) - softmax(X_train, thetas, k)))
+
+        self.coef_ = thetas
+
+
+    def predict(self, X):
+        '''
+        Function to run multi class logistic regression on a given data point
+
+        :param X: pd.DataFrame with rows as samples and columns as features
+
+        :return: y: pd.Series with rows corresponding to output variable. The output variable in a row is the prediction(one of the K classes) for sample in corresponding row in X.
+                    It is based on which class gets the highest probability value
+
+        '''
+        X_copy = X.copy(deep = True)
+        if(self.fit_intercept):
+            X_copy.insert(0, column = "ones", value = [1 for i in range(len(X_copy.index))])
+        X_np = X_copy.to_numpy()
+        thetas = self.coef_
+
+        probs = np.dot(X_np, thetas.T)
+        y_preds = np.argmax(probs)
+
+        return y_preds
