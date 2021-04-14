@@ -7,6 +7,7 @@ import autograd.numpy as anp
 from autograd import grad
 from autograd import elementwise_grad as egrad
 from mpl_toolkits.mplot3d import Axes3D
+from scipy.special import expit
 
 
 def select_batch(X, s, size):
@@ -17,6 +18,7 @@ def select_batch(X, s, size):
             Also, return end e. Used for the next starting point
     '''
 
+    # print(s, size)
     n = len(X.index)
     e = (s + size - 1) % n
     choose = [0 for i in range(n)]
@@ -28,15 +30,16 @@ def select_batch(X, s, size):
             choose[i] = 1
         for i in range(s + 1):
             choose[i] = 1
-    sel_vec = pd.Series(choose, dtype = bool).reindex_like(X)
+    sel_vec = pd.Series(choose, index = X.index, dtype = bool)
     return sel_vec, e
-
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
+def sig_vec(X, thetas):
+    return expit(np.dot(X, thetas))
 
-def J(X, theta, y):
+def J(theta, X, y):
     '''
     This is the cost function we will be minimising
     
@@ -48,13 +51,14 @@ def J(X, theta, y):
     '''
 
     cost = 0.0
-    for i in range(N):
-        x_i = X.iloc[i, :]
-        y_i = y.iloc[i]
-        Xtheta = np.dot(x_i, theta)
-        cost = cost - (y_i * np.log(sigmoid(Xtheta))) - ((1 - y_i) * np.log(1 - sigmoid(Xtheta)))
+    N = X.shape[0]
+    X = X.values
+    y = y.values
+    X.astype(float)
+    y.astype(float)
+    Xtheta = np.dot(X, theta)
+    cost = -(np.matmul(y, np.log(expit(Xtheta)))) - (np.matmul(1 - y, np.log(1 - expit(Xtheta))))
     return cost
-
 
 class LogisticRegression():
     def __init__(self, fit_intercept = True):
@@ -62,17 +66,48 @@ class LogisticRegression():
         self.coef_ = None # Will be replaced by the learned coefficients, thetas
         pass
 
-    def fit_unregularised_lr(self, X, y, batch_size = 1, num_iter = 100, lr = 0.01):
+    def fit_unregularised_lr_vec(self, X, y, batch_size = 1, num_iter = 10000, lr = 0.01):
         X_copy = X.copy(deep = True)
         n_samples = len(X_copy.index)
         n_features = len(X_copy.columns)
+
         if(self.fit_intercept):
             X_copy.insert(0, column = "ones", value = [1 for i in range(len(X_copy.index))])
             thetas = np.array([0 for i in range(n_features + 1)], dtype = 'float64')
         else:
             thetas = np.array([0 for i in range(n_features)], dtype = 'float64')
+
         prev_used = -1 # Previously used sample, this indicates where to start the next batch from
-        for k in range(n_iter):
+
+        for k in range(num_iter):
+            selection_vector, prev_used = select_batch(X_copy, (prev_used + 1) % n_samples, batch_size)
+            X_train = X_copy[selection_vector] # Select only the batch
+            y_train = y[selection_vector]
+            prev_thetas = thetas
+            if(self.fit_intercept):
+                params = n_features + 1
+            else:
+                params = n_features
+            Xt = X_train.transpose()
+            update_vec = Xt.values.dot(expit(X_train.values.dot(thetas)) - y_train.values)
+            thetas = thetas - lr * update_vec
+
+        self.coef_ = thetas
+
+    def fit_unregularised_lr(self, X, y, batch_size = 1, num_iter = 1000, lr = 0.01):
+        X_copy = X.copy(deep = True)
+        n_samples = len(X_copy.index)
+        n_features = len(X_copy.columns)
+
+        if(self.fit_intercept):
+            X_copy.insert(0, column = "ones", value = [1 for i in range(len(X_copy.index))])
+            thetas = np.array([0 for i in range(n_features + 1)], dtype = 'float64')
+        else:
+            thetas = np.array([0 for i in range(n_features)], dtype = 'float64')
+
+        prev_used = -1 # Previously used sample, this indicates where to start the next batch from
+
+        for k in range(num_iter):
             selection_vector, prev_used = select_batch(X_copy, (prev_used + 1) % n_samples, batch_size)
             X_train = X_copy[selection_vector] # Select only the batch
             y_train = y[selection_vector]
@@ -86,7 +121,8 @@ class LogisticRegression():
                     x_i = X_train.iloc[i, :]
                     y_i = y_train.iloc[i]
                     x_i_j = X_train.iloc[i, j]
-                    thetas[j] -= (lr * (sigmoid(np.dot(x_i, prev_thetas)) - y_i) * x_i_j)
+                    thetas[j] -= (lr * (expit(np.dot(x_i, prev_thetas)) - y_i) * x_i_j)
+
         self.coef_ = thetas
 
     def fit_autograd_lr(self, X, y, batch_size = 1, num_iter = 100, lr = 0.01):
@@ -99,11 +135,30 @@ class LogisticRegression():
         else:
             thetas = np.array([0 for i in range(n_features)], dtype = 'float64')
         prev_used = -1 # Previously used sample, this indicates where to start the next batch from
-        for k in range(n_iter):
+        for k in range(num_iter):
             selection_vector, prev_used = select_batch(X_copy, (prev_used + 1) % n_samples, batch_size)
             X_train = X_copy[selection_vector] # Select only the batch
             y_train = y[selection_vector]
+            print(J(thetas, X_train, y_train))
             del_J = egrad(J)
             update_vector = del_J(thetas, X_train, y_train)
-            thetas[j] -= (lr * (sigmoid(np.dot(x_i, prev_thetas)) - y_i) * x_i_j)
+            thetas[j] -= (lr * (expit(np.dot(x_i, prev_thetas)) - y_i) * x_i_j)
         self.coef_ = thetas
+
+
+    def predict(self, X):
+        '''
+        Function to run logistic regression on a given data point
+
+        :param X: pd.DataFrame with rows as samples and columns as features
+
+        :return: y: pd.Series with rows corresponding to output variable. The output variable in a row is the prediction(one of the K classes) for sample in corresponding row in X.
+
+        '''
+        X_copy = X.copy(deep = True)
+        if(self.fit_intercept):
+            X_copy.insert(0, column = "ones", value = [1 for i in range(len(X_copy.index))])
+        thetas = self.coef_
+        y = X_copy.apply(lambda row: sig_vec(row, thetas), axis = 1)
+        return y
+
