@@ -34,15 +34,15 @@ def select_batch(X, s, size):
     return sel_vec, e
 
 def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
+    return 0.5 * (anp.tanh(x / 2.) + 1)
 
-def sig_vec(X, thetas):
-    return expit(np.dot(X, thetas))
+def logistic_preds(X, thetas):
+    return sigmoid(anp.dot(X, thetas))
 
-def J(theta, X, y):
+def J(theta, inp, targets):
     '''
     This is the cost function we will be minimising
-    
+
     param X: Contains the X values, N x k values
     param theta: Learned coefficients, k coefficients, k x 1
     param y: Actual labels, N x 1
@@ -50,14 +50,9 @@ def J(theta, X, y):
     Return: Cost function
     '''
 
-    cost = 0.0
-    N = X.shape[0]
-    X = X.values
-    y = y.values
-    X.astype(float)
-    y.astype(float)
-    Xtheta = np.dot(X, theta)
-    cost = -(np.matmul(y, np.log(expit(Xtheta)))) - (np.matmul(1 - y, np.log(1 - expit(Xtheta))))
+    preds = logistic_preds(inp, theta)
+    label_probs = preds * targets + (1 - preds) * (1 - targets)
+    cost = -anp.sum(anp.log(label_probs))
     return cost
 
 class LogisticRegression():
@@ -66,7 +61,7 @@ class LogisticRegression():
         self.coef_ = None # Will be replaced by the learned coefficients, thetas
         pass
 
-    def fit_unregularised_lr_vec(self, X, y, batch_size = 1, num_iter = 10000, lr = 0.01):
+    def fit_unregularised_lr_vec(self, X, y, batch_size = 20, num_iter = 1000, lr = 0.02):
         X_copy = X.copy(deep = True)
         n_samples = len(X_copy.index)
         n_features = len(X_copy.columns)
@@ -94,7 +89,7 @@ class LogisticRegression():
 
         self.coef_ = thetas
 
-    def fit_unregularised_lr(self, X, y, batch_size = 1, num_iter = 1000, lr = 0.01):
+    def fit_unregularised_lr(self, X, y, batch_size = 1, num_iter = 100, lr = 0.01):
         X_copy = X.copy(deep = True)
         n_samples = len(X_copy.index)
         n_features = len(X_copy.columns)
@@ -125,7 +120,7 @@ class LogisticRegression():
 
         self.coef_ = thetas
 
-    def fit_autograd_lr(self, X, y, batch_size = 1, num_iter = 100, lr = 0.01):
+    def fit_autograd_lr(self, X, y, batch_size = 40, num_iter = 1000, lr = 0.1):
         X_copy = X.copy(deep = True)
         n_samples = len(X_copy.index)
         n_features = len(X_copy.columns)
@@ -139,10 +134,11 @@ class LogisticRegression():
             selection_vector, prev_used = select_batch(X_copy, (prev_used + 1) % n_samples, batch_size)
             X_train = X_copy[selection_vector] # Select only the batch
             y_train = y[selection_vector]
-            print(J(thetas, X_train, y_train))
-            del_J = egrad(J)
+            X_train = X_train.to_numpy(dtype = float)
+            y_train = y_train.to_numpy(dtype = float)
+            del_J = grad(J)
             update_vector = del_J(thetas, X_train, y_train)
-            thetas[j] -= (lr * (expit(np.dot(x_i, prev_thetas)) - y_i) * x_i_j)
+            thetas -= (lr * update_vector)
         self.coef_ = thetas
 
 
@@ -159,6 +155,8 @@ class LogisticRegression():
         if(self.fit_intercept):
             X_copy.insert(0, column = "ones", value = [1 for i in range(len(X_copy.index))])
         thetas = self.coef_
-        y = X_copy.apply(lambda row: sig_vec(row, thetas), axis = 1)
-        return y
+        y = X_copy.apply(lambda row: logistic_preds(row, thetas), axis = 1)
 
+        return np.rint(y)
+
+    # def plot_decision_boundary()

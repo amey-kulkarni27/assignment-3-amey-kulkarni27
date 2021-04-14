@@ -7,6 +7,7 @@ from metrics import accuracy
 data = load_breast_cancer()
 
 df = pd.DataFrame(data=data.data, columns=data.feature_names)
+df = (df - df.min()) / (df.max() - df.min())
 df['target'] = data.target
 n_rows = len(df.index)
 n_cols = len(df.columns)
@@ -25,11 +26,11 @@ for i in range(folds):
     X_train = train.iloc[:, 0: n_cols - 1] # Dataframe
     y_train = train.iloc[:, n_cols - 1] # Series
     lr = LogisticRegression(fit_intercept = True)
-    lr.fit_unregularised_lr_vec(X_train, y_train)
+    lr.fit_autograd_lr(X_train, y_train)
     y_hat = lr.predict(X_validation)
 
     acc = accuracy(y_hat, y_validation)
     cum_acc += acc
-    print(acc)
+    # print(acc)
 
 print(cum_acc / 3)
