@@ -33,4 +33,4 @@ for i in range(folds):
     cum_acc += acc
     # print(acc)
 
-print(cum_acc / 3)
+print(cum_acc / folds)

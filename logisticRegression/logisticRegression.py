@@ -45,12 +45,22 @@ def logistic_preds(X, thetas):
     '''
     return sigmoid(anp.dot(X, thetas))
 
+
 def softmax(X, thetas, k):
-        num = anp.exp(anp.dot(X, thetas[k]))
-        den = 0.0
-        for i in range(n_classes):
-            den += anp.exp(anp.dot(X, thetas[k]))
-        return anp.sum(num / den)
+    '''
+    X is an n x m matrix, n samples, m features
+    thetas is a k x m matrix, k classes, m features
+
+    Return: p, n x 1 matrix,
+    '''
+
+    f = anp.matmul(X, thetas.T)
+    f = anp.subtract(f.T, anp.max(f, axis = 1)).T
+    exp_f = anp.exp(f)
+    num = exp_f[:, k]
+    den = anp.sum(exp_f, axis = 1)
+    p = num / den
+    return p
 
 
 def J(theta, inp, targets, regularisation = None):
@@ -200,70 +210,39 @@ class LogisticRegression():
 
         return np.rint(y)
 
-     def plot_decision_boundary(self):
-        '''
-        I will use the coefficients obtained by training on the first two-thirds of data
-        I will plot the points of the second one-third
-        '''
 
-        xx, yy = np.mgrid[-5:5:.01, -5:5:.01]
-        grid = np.c_[xx.ravel(), yy.ravel()]
-        probs = self.predict(grid)[:, 1].reshape(xx.shape)
-
-        f, ax = plt.subplots(figsize=(8, 6))
-        contour = ax.contourf(xx, yy, probs, 25, cmap="RdBu",
-                            vmin=0, vmax=1)
-        ax_c = f.colorbar(contour)
-        ax_c.set_label("$P(y = 1)$")
-        ax_c.set_ticks([0, .25, .5, .75, 1])
-
-        ax.scatter(self.f1, self.f2, c=self.y, s=50,
-                cmap="RdBu", vmin=-.2, vmax=1.2,
-                edgecolor="white", linewidth=1)
-
-        ax.set(aspect="equal",
-            xlim=(-5, 5), ylim=(-5, 5),
-            xlabel="$X_1$", ylabel="$X_2$")
-
-
-
-
-
-class Multi_Class_LR()
-    def __init__(self, fit_intercept = True):
+class Multi_Class_LR():
+    def __init__(self, n_classes, fit_intercept = True):
         self.fit_intercept = fit_intercept
         self.coef_ = None # Will be replaced by the learned coefficients, thetas
-        self.n_classes = 0
-        pass
-    
-    def fit_unregularised_lr_vec(self, X, y, batch_size = 20, num_iter = 1000, lr = 0.02, n_classes):
+        self.n_classes = n_classes
+
+    def fit_unregularised_lr_vec(self, X, y, batch_size = 20, num_iter = 1000, lr = 0.1):
         X_copy = X.copy(deep = True)
         n_samples = len(X_copy.index)
         n_features = len(X_copy.columns)
 
-        self.n_classes = n_classes
+        n_classes = self.n_classes
 
         if(self.fit_intercept):
             X_copy.insert(0, column = "ones", value = [1 for i in range(len(X_copy.index))])
-            thetas = np.zeros((n_classes, n_features + 1))
+            thetas = np.zeros((n_classes, n_features + 1), dtype = np.float128)
         else:
-            thetas = np.zeros((n_classes, n_features))
+            thetas = np.zeros((n_classes, n_features), dtype = np.float128)
 
         prev_used = -1 # Previously used sample, this indicates where to start the next batch from
 
         for i in range(num_iter):
             selection_vector, prev_used = select_batch(X_copy, (prev_used + 1) % n_samples, batch_size)
-            X_train = X_copy[selection_vector] # Select only the batch
-            y_train = y[selection_vector]
+            X_train = (X_copy[selection_vector]).to_numpy(dtype = np.float128) # Select only the batch
+            y_train = (y[selection_vector]).to_numpy(dtype = np.float128)
             if(self.fit_intercept):
                 params = n_features + 1
             else:
                 params = n_features
-            Xt = X_train.transpose()
-            update_vec = Xt.values.dot(expit(X_train.values.dot(thetas)) - y_train.values)
-            thetas = thetas - lr * update_vec
+            Xt = X_train.T
             for k in range(n_classes):
-                thetas[k] -= np.sum(X_train * ((y_train == cls).astype(float) - softmax(X_train, thetas, k)))
+                thetas[k] -= (-lr * np.matmul(Xt, ((y_train == k).astype(np.float128) - softmax(X_train, thetas, k))))
 
         self.coef_ = thetas
 
@@ -281,10 +260,11 @@ class Multi_Class_LR()
         X_copy = X.copy(deep = True)
         if(self.fit_intercept):
             X_copy.insert(0, column = "ones", value = [1 for i in range(len(X_copy.index))])
-        X_np = X_copy.to_numpy()
+        X_np = X_copy.to_numpy(dtype = np.float128)
         thetas = self.coef_
 
         probs = np.dot(X_np, thetas.T)
-        y_preds = np.argmax(probs)
+        y_preds = np.argmax(probs, axis = 1)
 
         return y_preds
+
