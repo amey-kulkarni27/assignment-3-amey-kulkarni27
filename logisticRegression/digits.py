@@ -30,7 +30,7 @@ for i in range(folds):
     X_train = train.iloc[:, 0: n_cols - 1] # Dataframe
     y_train = train.iloc[:, n_cols - 1] # Series
     mlr = Multi_Class_LR(fit_intercept = True, n_classes = n_classes)
-    mlr.fit_unregularised_lr_vec(X_train, y_train)
+    mlr.fit_autograd_lr(X_train, y_train)
     y_hat = mlr.predict(X_validation)
     acc = accuracy(y_hat, y_validation)
     cum_acc += acc

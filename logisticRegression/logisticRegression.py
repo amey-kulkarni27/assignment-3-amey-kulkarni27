@@ -86,23 +86,27 @@ def J(theta, inp, targets, regularisation = None):
 
     return cost
 
-def J_multiclass(theta, inp, targets, n_classes):
+
+def J_multiclass(thetas, inp, targets, n_classes):
     '''
     This is the cost function for k classes
 
     param inp: Contains the X values, N x m values
-    param theta: Learned coefficients for k classes and m coefficients, k x m
+    param thetas: Learned coefficients for k classes and m coefficients, k x m
     param targets: Actual labels, N x 1, any of the k classes
 
     Return: Cost function
     '''
-    
-    cost = 0.0
 
-    for k in range(n_classes):
-        sel_vec = (targets == cls)
-        X = inp[sel_vec]
-        cost -= softmax(X, theta, k)
+    cost = 0.0
+    f = anp.matmul(inp, thetas.T)
+    f = anp.subtract(f.T, anp.max(f, axis = 1)).T
+    num = anp.exp(f)
+    den = anp.sum(anp.exp(f), axis=1)[:, anp.newaxis]
+    preds = num / den
+    n = inp.shape[0]
+    for i in range(n):
+        cost -= anp.log(preds[i, int(targets[i])])
 
     return cost
 
@@ -243,6 +247,33 @@ class Multi_Class_LR():
             Xt = X_train.T
             for k in range(n_classes):
                 thetas[k] -= (-lr * np.matmul(Xt, ((y_train == k).astype(np.float128) - softmax(X_train, thetas, k))))
+
+        self.coef_ = thetas
+
+
+    def fit_autograd_lr(self, X, y, batch_size = 20, num_iter = 50, lr = 0.012):
+        X_copy = X.copy(deep = True)
+        n_samples = len(X_copy.index)
+        n_features = len(X_copy.columns)
+
+        n_classes = self.n_classes
+        if(self.fit_intercept):
+            X_copy.insert(0, column = "ones", value = [1 for i in range(len(X_copy.index))])
+            thetas = np.zeros((n_classes, n_features + 1), )
+        else:
+            thetas = np.zeros((n_classes, n_features), )
+
+        prev_used = -1 # Previously used sample, this indicates where to start the next batch from
+        for i in range(num_iter):
+            selection_vector, prev_used = select_batch(X_copy, (prev_used + 1) % n_samples, batch_size)
+            X_train = X_copy[selection_vector] # Select only the batch
+            y_train = y[selection_vector]
+            X_train = X_train.to_numpy(dtype = float)
+            y_train = y_train.to_numpy(dtype = float)
+            del_J = grad(J_multiclass)
+            update_vector = del_J(thetas, X_train, y_train, n_classes)
+
+            thetas -= (lr * update_vector)
 
         self.coef_ = thetas
 
