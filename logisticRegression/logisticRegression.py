@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
+import seaborn as sns
 # Import Autograd modules here
 import autograd.numpy as anp
 from autograd import grad
@@ -63,7 +64,7 @@ def softmax(X, thetas, k):
     return p
 
 
-def J(theta, inp, targets, regularisation = None):
+def J(theta, inp, targets, regularisation = None, lamda = 0.01):
     '''
     This is the cost function we will be minimising
 
@@ -79,7 +80,7 @@ def J(theta, inp, targets, regularisation = None):
     cost = -anp.sum(anp.log(label_probs))
 
     if(regularisation == "l1"):
-        cost += lamda * anp.linalg.norm(theta)
+        cost += lamda * anp.sum(anp.abs(theta))
     
     if(regularisation == "l2"):
         cost += lamda * anp.dot(theta, theta)
@@ -175,7 +176,7 @@ class LogisticRegression():
 
         self.coef_ = thetas
 
-    def fit_autograd_lr(self, X, y, batch_size = 40, num_iter = 1000, lr = 0.1):
+    def fit_autograd_lr(self, X, y, regularisation=None, lamda=0.01, batch_size = 40, num_iter = 1000, lr = 0.01, ):
         X_copy = X.copy(deep = True)
         n_samples = len(X_copy.index)
         n_features = len(X_copy.columns)
@@ -192,7 +193,7 @@ class LogisticRegression():
             X_train = X_train.to_numpy(dtype = float)
             y_train = y_train.to_numpy(dtype = float)
             del_J = grad(J)
-            update_vector = del_J(thetas, X_train, y_train)
+            update_vector = del_J(thetas, X_train, y_train, regularisation=regularisation, lamda=lamda)
             thetas -= (lr * update_vector)
         self.coef_ = thetas
 
@@ -213,6 +214,28 @@ class LogisticRegression():
         y = X_copy.apply(lambda row: logistic_preds(row, thetas), axis = 1)
 
         return np.rint(y)
+
+    def boundary(self, X, y):
+        X = X.to_numpy()
+        c = self.coef_[0]
+        w1 = self.coef_[1]
+        w2 = self.coef_[2]
+        m = -w1/w2
+        c /= -w2
+        xmin, xmax, ymin, ymax = -1.5, 1.5, -1, 1
+        Xs = np.array([xmin, xmax])
+        ys = Xs * m + c/10
+        plt.plot(Xs, ys, 'k', lw=1, ls='--')
+        plt.fill_between(Xs, ys, ymin, color='tab:orange', alpha=0.3)
+        plt.fill_between(Xs, ys, ymax, color='tab:blue', alpha=0.3)
+        plt.scatter(X[y==0][0], X[y==0][1], s=10, alpha=0.6, cmap='Paired', label="0")
+        plt.scatter(X[y==1][0], X[y==1][1], s=10, alpha=0.6, cmap='Paired', label="1")
+        plt.xlim(xmin, xmax)
+        plt.ylim(ymin, ymax)
+        plt.xlabel("Radius")
+        plt.ylabel("Texture")
+        plt.title("LR Decision Boundary")
+        plt.show()
 
 
 class Multi_Class_LR():

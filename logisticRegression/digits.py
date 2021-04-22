@@ -4,6 +4,9 @@ from sklearn.datasets import load_digits
 from sklearn import preprocessing
 from logisticRegression import Multi_Class_LR
 from metrics import accuracy
+from sklearn.decomposition import PCA # as sklearnPCA
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 min_max_scaler = preprocessing.MinMaxScaler()
 
@@ -11,6 +14,18 @@ data2 = load_digits()
 df2 = pd.DataFrame(data2.data)
 min_max_scaler.fit_transform(df2)
 df2['target'] = data2.target
+
+
+def confusion_matrix(y_hat, y_validation):
+    res = np.zeros((10, 10))
+    y_hat = list(y_hat)
+    y_validation = list(y_validation)
+    for i in range(len(y_hat)):
+        res[int(y_hat[i])][int(y_validation[i])] += 1
+    sns.heatmap(res)
+    plt.show()
+    print(res)
+    print()
 
 
 # 4 fold cross validation
@@ -32,6 +47,7 @@ for i in range(folds):
     mlr = Multi_Class_LR(fit_intercept = True, n_classes = n_classes)
     mlr.fit_autograd_lr(X_train, y_train)
     y_hat = mlr.predict(X_validation)
+    (confusion_matrix(y_hat, y_validation))
     acc = accuracy(y_hat, y_validation)
     cum_acc += acc
 
@@ -40,3 +56,4 @@ for i in range(folds):
     # print(acc)
 
 print(cum_acc / folds)
+

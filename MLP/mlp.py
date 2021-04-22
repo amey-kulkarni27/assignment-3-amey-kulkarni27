@@ -9,6 +9,10 @@ from sklearn.datasets import load_digits
 from sklearn import preprocessing
 min_max_scaler = preprocessing.MinMaxScaler()
 
+
+def rmse(y_hat, y):
+    return np.sqrt(np.mean((y-y_hat)**2))
+
 def accuracy(y_hat, y):
     assert(y_hat.size == y.size)
 
@@ -48,6 +52,7 @@ class MLP():
         self.num_layers = num_layers
         self.clf = clf
         self.inp_dim = inp_dim
+        print(inp_dim)
         self.dims = hid_dims
         self.dims.insert(0, inp_dim)
         if self.clf:
@@ -62,7 +67,7 @@ class MLP():
         if self.clf:
             self.g.append(softmax)
         else:
-            self.g.append(relu)
+            self.g.append(identity)
         self.X = X
         self.y = y
 
@@ -96,8 +101,13 @@ class MLP():
         update_vecW = del_costW(self.W, self.b)
         update_vecb = del_costb(self.W, self.b)
         for i in range(self.num_layers + 1):
-            self.W[i] -= lr * update_vecW[i] / len(self.X)
-            self.b[i] -= lr * update_vecb[i] / len(self.X)
+            if self.clf:
+                self.W[i] -= lr * update_vecW[i] / len(self.X)
+                self.b[i] -= lr * update_vecb[i] / len(self.X)
+            else:
+                self.W[i] -= lr * update_vecW[i]
+                self.b[i] -= lr * update_vecb[i]
+
 
 
     def cross_entropy(self, W, b):
@@ -121,9 +131,10 @@ class MLP():
     def rmse(self, W, b):
         predictions = self.forward(W, b)
         targets = self.y
+        print(np.sqrt(np.mean((predictions-targets)**2)))
         return np.sqrt(np.mean((predictions-targets)**2))
 
-    def fit(self, n_iter=30, lr=1):
+    def fit(self, n_iter=2, lr=5):
         for i in range(n_iter):
             self.backward(lr)
 
