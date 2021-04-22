@@ -57,6 +57,7 @@ def run_test_harness():
     # evaluate model
     _, acc = model.evaluate_generator(test_it, steps=len(test_it), verbose=0)
     print('> %.3f' % (acc * 100.0))
+    print(acc)
     # learning curves
     summarize_diagnostics(history)
         
