@@ -52,7 +52,6 @@ class MLP():
         self.num_layers = num_layers
         self.clf = clf
         self.inp_dim = inp_dim
-        print(inp_dim)
         self.dims = hid_dims
         self.dims.insert(0, inp_dim)
         if self.clf:
@@ -131,10 +130,9 @@ class MLP():
     def rmse(self, W, b):
         predictions = self.forward(W, b)
         targets = self.y
-        print(np.sqrt(np.mean((predictions-targets)**2)))
         return np.sqrt(np.mean((predictions-targets)**2))
 
-    def fit(self, n_iter=2, lr=5):
+    def fit(self, n_iter=300, lr=2):
         for i in range(n_iter):
             self.backward(lr)
 
@@ -142,6 +140,9 @@ class MLP():
     def predict(self, inp):
         self.X = inp
         probs = self.forward(self.W, self.b)
+        if self.clf != True:
+            return probs
+
         y_preds = np.argmax(probs, axis=1)
 
         return y_preds
