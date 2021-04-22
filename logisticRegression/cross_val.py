@@ -51,3 +51,4 @@ for reg in ["l1", "l2"]:
 #print(cum_acc / folds)
 print("Best l1 lambda:", l1_lam)
 print("Best l2 lambda:", l2_lam)
+
