@@ -26,8 +26,8 @@ for i in range(folds):
     X_train = train.iloc[:, 0: n_cols - 1] # Dataframe
     y_train = train.iloc[:, n_cols - 1] # Series
     lr = LogisticRegression(fit_intercept = True)
-    #lr.fit_autograd_lr(X_train, y_train, regularisation="l1", lamda=0.01)
-    lr.fit_unregularised_lr_vec(X_train, y_train)
+    lr.fit_autograd_lr(X_train, y_train)
+    #lr.fit_unregularised_lr_vec(X_train, y_train)
     y_hat = lr.predict(X_validation)
     if i == 0:
         lr.boundary(X_validation, y_hat)
